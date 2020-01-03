@@ -1,0 +1,8 @@
+# C/C++ objects and libraries
+*.a
+*.o
+*.so
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
