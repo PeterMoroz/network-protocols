@@ -15,6 +15,8 @@
 #include <stdexcept>
 #include <unordered_map>
 
+#include <experimental/filesystem>
+
 using asio::ip::udp;
 
 
@@ -55,8 +57,6 @@ namespace TFTP
     };
 
 	using Buffer = std::array<char, BUFFER_SIZE>;
-
-	Buffer makeErrorMessage(ErrorCode code, const std::string& text);
 }
 
 
@@ -93,6 +93,8 @@ protected:
 	void setState(State state) { _state = state; }
 
 	bool send(const TFTP::Buffer& dataBuffer, std::size_t bytesCount);
+
+    bool sendErrorMessage(TFTP::ErrorCode code, const std::string& text);
 
 private:
 	udp::socket& _socket;
@@ -158,6 +160,9 @@ private:
 	void receive();
     void waitSignal();
 
+    bool send(const TFTP::Buffer& dataBuffer, std::size_t bytesCount);
+    bool sendErrorMessage(TFTP::ErrorCode code, const std::string& text);    
+
 private:
 	asio::io_context _ioContext;
     asio::signal_set _signal;
@@ -188,35 +193,7 @@ private:
 	Sessions _sessions;
 
 	TFTP::Buffer _recvBuffer;
-	TFTP::Buffer _sendBuffer;
-	std::size_t _sendBytesCount = 0;
 };
-
-namespace TFTP
-{
-
-TFTP::Buffer makeErrorMessage(ErrorCode code, const std::string& text)
-{
-    std::ostringstream oss;
-
-    static const std::uint16_t ERROR_OPCODE = static_cast<std::uint16_t>(TFTP::MessageType::ERROR);    
-    oss.write(reinterpret_cast<const char*>(&ERROR_OPCODE), 2);
-
-    const std::uint16_t ERROR_CODE = static_cast<std::uint16_t>(code);
-    oss.write(reinterpret_cast<const char*>(&ERROR_CODE), 2);
-
-    std::size_t n = text.length() < 512 ? text.length() : 511;
-    oss.write(text.c_str(), n);
-    oss.put('\0');
-
-    TFTP::Buffer buffer;
-    n = oss.str().length() + 1;
-    std::copy_n(oss.str().cbegin(), n, buffer.begin());
-    return buffer;
-}
-
-}
-
 
 
 
@@ -244,7 +221,29 @@ bool TFTPSession::send(const TFTP::Buffer& dataBuffer, std::size_t bytesCount)
         		 << ':' << _ep.port() << ") " << ec.message() << '(' << ec.value() << ')' << std::endl;
         return false;
     }
-    return true;	
+    return true;
+}
+
+bool TFTPSession::sendErrorMessage(TFTP::ErrorCode code, const std::string& text)
+{
+    TFTP::Buffer sendBuffer;
+    std::size_t sendBytesCount = 0;    
+
+    static const std::uint16_t ERROR_OPCODE = static_cast<std::uint16_t>(TFTP::MessageType::ERROR);
+    std::memcpy(sendBuffer.data(), &ERROR_OPCODE, sizeof(ERROR_OPCODE));
+    sendBytesCount = sizeof(ERROR_OPCODE);
+
+    const std::uint16_t ERROR_CODE = static_cast<std::uint16_t>(code);
+    std::memcpy(sendBuffer.data() + sendBytesCount, &ERROR_CODE, sizeof(ERROR_CODE));    
+    sendBytesCount += sizeof(ERROR_OPCODE);
+
+    std::size_t n = text.length() < 512 ? text.length() : 511;
+    std::copy_n(text.c_str(), n, sendBuffer.data() + sendBytesCount);
+    sendBytesCount += n;
+    sendBuffer[sendBytesCount] = '\0';
+    sendBytesCount += 1;
+
+    return send(sendBuffer, sendBytesCount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -299,8 +298,7 @@ void TFTPSessionRead::onDataReceived(const TFTP::Buffer& data, std::size_t amoun
 
     	if (!_inFile)
     	{
-    		const TFTP::Buffer message(TFTP::makeErrorMessage(TFTP::ErrorCode::FileNotFound, ""));
-    		// TO DO: send error message
+            sendErrorMessage(TFTP::ErrorCode::FileNotFound, "");
     		return;
     	}
 
@@ -319,8 +317,7 @@ void TFTPSessionRead::onDataReceived(const TFTP::Buffer& data, std::size_t amoun
 
     	if (blockCounter != getBlockCounter())
     	{
-    		const TFTP::Buffer message(TFTP::makeErrorMessage(TFTP::ErrorCode::UnknownTransferId, ""));
-    		// TO DO: send error message
+            sendErrorMessage(TFTP::ErrorCode::UnknownTransferId, "");
     		return;
     	}
 
@@ -462,6 +459,52 @@ void TFTPSessionWrite::onDataReceived(const TFTP::Buffer& data, std::size_t amou
     		return ;
     	}
 
+        namespace fs = std::experimental::filesystem;
+
+        std::error_code ec;
+        const fs::path currentPath = fs::current_path(ec);
+        if (ec)
+        {
+            std::cerr << "Error: " << ec.message() << '(' << ec.value() << ')' << std::endl;
+            return;
+        }
+
+        const fs::path filePath = currentPath / filename;
+
+        if (ec)
+        {
+            std::cerr << "Error: " << ec.message() << '(' << ec.value() << ')' << std::endl;
+            return;
+        }
+
+        bool fileExists = fs::exists(filePath, ec);
+        if (ec)
+        {
+            std::cerr << "Error: " << ec.message() << '(' << ec.value() << ')' << std::endl;
+            return;
+        }
+
+        if (fileExists)
+        {
+            sendErrorMessage(TFTP::ErrorCode::FileAlreadyExists, "");
+            return;
+        }
+
+
+        const fs::perms currPermissions = fs::status(currentPath, ec).permissions();
+        if (ec)
+        {
+            std::cerr << "Error: " << ec.message() << '(' << ec.value() << ')' << std::endl;
+            return;
+        }
+
+        if ((currPermissions & fs::perms::others_write) == fs::perms::none)
+        {
+            sendErrorMessage(TFTP::ErrorCode::AccessViolation, "");
+            return;            
+        }
+
+        
     	if (getTrasferMode() == TFTP::TransferMode::Binary)
     	{
     		_outFile.open(filename, std::ios::binary);
@@ -471,15 +514,6 @@ void TFTPSessionWrite::onDataReceived(const TFTP::Buffer& data, std::size_t amou
     		_outFile.open(filename);
     	}
 
-    	// TO DO: check the following situations
-    	// 1. file already exists (error code )
-    	// 2. not permission to write (error code 2)
-    	// if (!_outFile)
-    	// {
-    	// 	const TFTP::Buffer message(TFTP::makeErrorMessage(TFTP::ErrorCode::FileNotFound, ""));
-    	// 	// TO DO: send error message
-    	// 	return;
-    	// }
 
     	if (!sendAcknowledge())
     	{
@@ -496,8 +530,7 @@ void TFTPSessionWrite::onDataReceived(const TFTP::Buffer& data, std::size_t amou
     	incrementBlockCounter();
     	if (blockCounter != getBlockCounter())
     	{
-    		const TFTP::Buffer message(TFTP::makeErrorMessage(TFTP::ErrorCode::UnknownTransferId, ""));
-    		// TO DO: send error message
+            sendErrorMessage(TFTP::ErrorCode::UnknownTransferId, "");
     		return;
     	}
 
@@ -567,10 +600,8 @@ bool TFTPSessionWrite::sendAcknowledge()
 TFTPServer::TFTPServer()
 	: _ioContext(1)
     , _signal(_ioContext, SIGINT, SIGTERM)
-	// , _socket(_ioContext, {udp::v4(), TFTP::PORT})
     , _socket(_ioContext)
 {
-//	receive();
 }
 
 TFTPServer::~TFTPServer()
@@ -659,8 +690,7 @@ void TFTPServer::receive()
 			        }
 			        else
 			        {
-			        	const TFTP::Buffer message(TFTP::makeErrorMessage(TFTP::ErrorCode::IllegalOperation, ""));
-			        	// TO DO: send error messsage
+                        sendErrorMessage(TFTP::ErrorCode::IllegalOperation, "");
 			        }
 	        	 }
 	        	 else
@@ -697,6 +727,41 @@ void TFTPServer::waitSignal()
                     << ec.message() << '(' << ec.value() << ')' << std::endl;
             }
         });
+}
+
+bool TFTPServer::send(const TFTP::Buffer& dataBuffer, std::size_t bytesCount)
+{
+    asio::error_code ec;
+    std::size_t n = _socket.send_to(asio::const_buffer(dataBuffer.data(), bytesCount), _remoteEndpoint, 0, ec);
+    if (ec)
+    {
+        std::cerr << "Error when sending data (" << _remoteEndpoint.address().to_string()
+             << ':' << _remoteEndpoint.port() << ") " << ec.message() << '(' << ec.value() << ')' << std::endl;
+        return false;
+    }
+    return true;    
+}
+
+bool TFTPServer::sendErrorMessage(TFTP::ErrorCode code, const std::string& text)
+{
+    TFTP::Buffer sendBuffer;
+    std::size_t sendBytesCount = 0;
+
+    static const std::uint16_t ERROR_OPCODE = static_cast<std::uint16_t>(TFTP::MessageType::ERROR);
+    std::memcpy(sendBuffer.data(), &ERROR_OPCODE, sizeof(ERROR_OPCODE));
+    sendBytesCount = sizeof(ERROR_OPCODE);
+
+    const std::uint16_t ERROR_CODE = static_cast<std::uint16_t>(code);
+    std::memcpy(sendBuffer.data() + sendBytesCount, &ERROR_CODE, sizeof(ERROR_CODE));    
+    sendBytesCount += sizeof(ERROR_OPCODE);
+
+    std::size_t n = text.length() < 512 ? text.length() : 511;
+    std::copy_n(text.c_str(), n, sendBuffer.data() + sendBytesCount);
+    sendBytesCount += n;
+    sendBuffer[sendBytesCount] = '\0';
+    sendBytesCount += 1;
+
+    return send(sendBuffer, sendBytesCount);    
 }
 
 
