@@ -6,3 +6,6 @@
 # Sublime
 *.sublime-project
 *.sublime-workspace
+
+# CTags
+.tags*
