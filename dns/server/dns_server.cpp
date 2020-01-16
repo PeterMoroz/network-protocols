@@ -77,27 +77,27 @@ void DNSServer::receive()
 		{
 			if (!ec)
 			{
-				std::cout << "Received " << sz << " bytes.\n";
+				// std::cout << "Received " << sz << " bytes.\n";
 				udp::socket::bytes_readable cmdReadable(true);
 
 				_socket.io_control(cmdReadable, ec);
 				if (!ec)
 				{
 					std::size_t readableAmount = cmdReadable.get();
-					std::cout << "Available to read: " << readableAmount << " bytes.\n";
+					// std::cout << "Available to read: " << readableAmount << " bytes.\n";
 
 					std::vector<std::uint8_t> buffer(readableAmount);
 					sz = _socket.receive_from(asio::buffer(buffer.data(), buffer.size()), _clientEndpoint, 0, ec);
 					if (!ec)
 					{
-						std::cout << "Received " << sz << " bytes.\n";
+						// std::cout << "Received " << sz << " bytes.\n";
 						// TO DO: process received data and send back response
 						// TO DO: implement asynchronous processing
 						try
 						{
 							DNSQuery dnsQuery;
 							std::size_t n = dnsQuery.decode(buffer);
-							std::cout << "Decoded " << n << " bytes.\n";
+							// std::cout << "Decoded " << n << " bytes.\n";
 
 							if (dnsQuery.getFlagQR())
 							{
@@ -155,7 +155,7 @@ void DNSServer::sendResponse(std::vector<std::uint8_t>&& buffer)
 			}
 			else
 			{
-				std::cout << "Amount of bytes sent: " << sz << std::endl;
+				// std::cout << "Amount of bytes sent: " << sz << std::endl;
 				receive();
 			}
 		});

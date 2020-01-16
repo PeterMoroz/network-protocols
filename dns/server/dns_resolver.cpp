@@ -27,7 +27,8 @@ void DNSResolver::process(const DNSQuery& query, DNSResponse& response)
 
 	std::cout << "Processing DNS query: "
 		<< "\nrequested name " << qname
-		<< "\nresponse data " << rdata << std::endl;
+		<< "\nresponse data " << rdata
+		<< "\n--------------" << std::endl;
 
 	response.setId(query.getId());
 	response.setQCount(1);
