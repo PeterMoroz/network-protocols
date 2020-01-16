@@ -74,6 +74,9 @@ protected:
 	void getFlagRA(bool on);
 	void setFieldRcode(std::uint8_t rcode);
 
+protected:
+	static std::vector<std::uint8_t> encodeDomainName(const std::string& name);
+
 private:
 	std::uint16_t _id = 0;		// identifier
 	std::uint16_t _flags = 0;	// flags and codes

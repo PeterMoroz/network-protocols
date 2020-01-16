@@ -36,9 +36,6 @@ public:
 	void dump(std::ostream& os) const;
 
 private:
-	static std::vector<std::uint8_t> encodeDomainName(const std::string& name);
-
-private:
 	std::string _name;
 	std::uint16_t _type;
 	std::uint16_t _cls;

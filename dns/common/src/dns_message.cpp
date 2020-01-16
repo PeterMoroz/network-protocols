@@ -189,3 +189,35 @@ void DNSMessage::setFieldRcode(std::uint8_t rcode)
 	_flags &= 0xFFF0;
 	_flags |= (rcode & 0xF);
 }
+
+
+std::vector<std::uint8_t> DNSMessage::encodeDomainName(const std::string& name)
+{
+	std::vector<std::uint8_t> result;
+	result.reserve(name.length() + 2);
+
+	std::size_t p0 = 0, p1 = name.find('.');
+	while (p1 != std::string::npos)
+	{
+		std::size_t n = p1 - p0;
+		result.push_back(static_cast<std::uint8_t>(n));
+		for (; p0 < p1; p0++)
+		{
+			result.push_back(static_cast<std::uint8_t>(name[p0]));
+		}
+
+		p0 = p1 + 1;
+		p1 = name.find('.', p0);
+	}	
+
+	std::size_t n = name.length() - p0;
+	result.push_back(static_cast<std::uint8_t>(n));
+	for (; p0 < name.length(); p0++)
+	{
+		result.push_back(static_cast<std::uint8_t>(name[p0]));
+	}
+
+	result.push_back(0);
+
+	return result;
+}

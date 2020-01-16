@@ -24,11 +24,11 @@ std::size_t DNSResponse::decode(const std::vector<std::uint8_t>& buffer)
 std::vector<std::uint8_t> DNSResponse::encode() const
 {
 	std::vector<std::uint8_t> result(DNSMessage::encode());
-	std::vector<std::uint8_t> name(encodeDomainName(_name));
+	std::vector<std::uint8_t> name(DNSMessage::encodeDomainName(_name));
 
 	// assume, that data contains domain name.
 	// this assumption is correct for query with type A (1)
-	std::vector<std::uint8_t> data(encodeDomainName(_data));
+	std::vector<std::uint8_t> data(DNSMessage::encodeDomainName(_data));
 
 	result.reserve(result.size() 									// header
 				+ name.size() + 2 * sizeof(std::uint16_t)			// question section
@@ -82,35 +82,4 @@ void DNSResponse::dump(std::ostream& os) const
 void DNSResponse::setRCode(std::uint8_t rcode)
 {
 	DNSMessage::setFieldRcode(rcode);
-}
-
-std::vector<std::uint8_t> DNSResponse::encodeDomainName(const std::string& name)
-{
-	std::vector<std::uint8_t> result;
-	result.reserve(name.length() + 2);
-
-	std::size_t p0 = 0, p1 = name.find('.');
-	while (p1 != std::string::npos)
-	{
-		std::size_t n = p1 - p0;
-		result.push_back(static_cast<std::uint8_t>(n));
-		for (; p0 < p1; p0++)
-		{
-			result.push_back(static_cast<std::uint8_t>(name[p0]));
-		}
-
-		p0 = p1 + 1;
-		p1 = name.find('.', p0);
-	}	
-
-	std::size_t n = name.length() - p0;
-	result.push_back(static_cast<std::uint8_t>(n));
-	for (; p0 < name.length(); p0++)
-	{
-		result.push_back(static_cast<std::uint8_t>(name[p0]));
-	}
-
-	result.push_back(0);
-
-	return result;
 }

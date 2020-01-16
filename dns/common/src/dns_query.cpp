@@ -24,8 +24,10 @@ std::size_t DNSQuery::decode(const std::vector<std::uint8_t>& buffer)
 std::vector<std::uint8_t> DNSQuery::encode() const
 {
 	// TO DO: need to be implemented for DNS client
-	std::vector<std::uint8_t> data;
-	return data;
+	std::vector<std::uint8_t> result(DNSMessage::encode());
+	std::vector<std::uint8_t> name(encodeDomainName(_name));
+
+	return result;
 }
 
 void DNSQuery::dump(std::ostream& os) const
