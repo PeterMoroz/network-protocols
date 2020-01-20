@@ -5,15 +5,13 @@
 
 #include <cstdint>
 
-#include <memory>
 #include <string>
-#include <unordered_map>
 
 #include <asio.hpp>
 
 using asio::ip::tcp;
 
-class SMTPServer final : public SessionsManager<SMTPSession>
+class SMTPServer final
 {
 public:
 	SMTPServer();
@@ -30,14 +28,11 @@ private:
 
 	void waitSignal();
 
-	void startSession() override;
-	void closeSession(std::uint32_t id) override;
-
 private:
 	asio::io_context _ioContext;
 	asio::signal_set _signal;
 	asio::ip::tcp::acceptor _acceptor;
-	std::uint32_t _sessionId = 0;
 
-	std::unordered_map<std::uint32_t, std::unique_ptr<SMTPSession>> _sessions;
+	std::uint32_t _nextSessionId = 0;
+	SessionsManager<SMTPSession> _sessionsManager;
 };

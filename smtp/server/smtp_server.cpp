@@ -75,9 +75,12 @@ void SMTPServer::acceptConnection()
 
 				LOG_INFO() << " - Accepted connection from " 
 					<< ep.address() << ':' << ep.port() << std::endl;
-				_sessions[_sessionId] = std::move(std::make_unique<SMTPSession>(_sessionId, this, std::move(socket)));
-				_sessions[_sessionId]->start();
-				_sessionId += 1;
+				std::uint32_t sessionId = _nextSessionId + 1;
+				std::unique_ptr<SMTPSession> session = std::make_unique<SMTPSession>(sessionId, &_sessionsManager, std::move(socket));
+				_sessionsManager.startSession(std::move(session));
+				_nextSessionId = sessionId;
+				// _sessions[_sessionId] = std::move(std::make_unique<SMTPSession>(_sessionId, this, std::move(socket)));
+				// _sessions[_sessionId]->start();
 			}
 			else
 			{
@@ -102,15 +105,4 @@ void SMTPServer::waitSignal()
 				LOG_ERROR() << " - Error " << ec.message() << '(' << ec.value() << ')' << std::endl;
 			}			
 		});
-}
-
-void SMTPServer::startSession()
-{
-
-}
-
-void SMTPServer::closeSession(std::uint32_t id)
-{
-	std::cout << " manager is closing session " << id << std::endl;
-	// async remove session from container
 }
