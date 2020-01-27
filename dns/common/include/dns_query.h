@@ -7,25 +7,6 @@
 class DNSQuery : public DNSMessage
 {
 public:
-	enum class QType : std::uint8_t
-	{
-		A     = 1,
-		NS    = 2,
-		CNAME = 5,
-		SOA   = 6,
-		MB    = 7,
-		WKS   = 11,
-		PTR   = 12,
-		HINFO = 13,
-		MINFO = 14,
-		MX    = 15,
-		TXT   = 16,
-		AXFR  = 252,
-		ANY   = 255
-	};
-
-
-public:
 	DNSQuery() = default;
 	~DNSQuery() = default;
 
@@ -58,9 +39,13 @@ public:
 		return _cls;
 	}
 
+	void setUseRecursion(bool useRecursion);
+
 	void dump(std::ostream& os) const;	
 
 private:
+	// TO DO: remove, because it is obsolette.
+	// use DNSMessage::deodeDomainName instead.
 	std::size_t decodeName(const std::uint8_t* data, std::size_t size);
 
 private:

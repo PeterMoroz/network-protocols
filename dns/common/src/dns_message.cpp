@@ -46,7 +46,7 @@ std::size_t DNSMessage::decode(const std::vector<std::uint8_t>& buffer)
 
 	_arCount = ntohs(*src);
 	src += 1;
-	bytesCount += sizeof(std::uint16_t);	
+	bytesCount += sizeof(std::uint16_t);
 
 	return bytesCount;
 }
@@ -148,7 +148,7 @@ void DNSMessage::setFlagAA(bool on)
 	}
 }
 
-void DNSMessage::getFlagTC(bool on)
+void DNSMessage::setFlagTC(bool on)
 {
 	if (on)
 	{
@@ -160,7 +160,7 @@ void DNSMessage::getFlagTC(bool on)
 	}
 }
 
-void DNSMessage::getFlagRD(bool on)
+void DNSMessage::setFlagRD(bool on)
 {
 	if (on)
 	{
@@ -172,7 +172,7 @@ void DNSMessage::getFlagRD(bool on)
 	}
 }
 
-void DNSMessage::getFlagRA(bool on)
+void DNSMessage::setFlagRA(bool on)
 {
 	if (on)
 	{
@@ -190,6 +190,76 @@ void DNSMessage::setFieldRcode(std::uint8_t rcode)
 	_flags |= (rcode & 0xF);
 }
 
+// std::size_t DNSMessage::decodeDomainName(const std::uint8_t* data, std::string& name)
+// {
+// 	std::size_t bytesCount = 0;
+// 	name.clear();
+
+// 	std::size_t length = *data;
+// 	while (length != 0)
+// 	{
+// 		bytesCount += 1;
+// 		data += 1;
+
+// 		for (; length != 0; length--, data++, bytesCount++)
+// 		{
+// 			char x = *reinterpret_cast<const char*>(data);
+// 			name.push_back(x);			
+// 		}
+
+// 		length = *data;
+// 		if (length != 0)
+// 		{
+// 			name.push_back('.');
+// 		}
+// 	}
+
+// 	return bytesCount + 1;
+// }
+
+std::size_t DNSMessage::decodeDomainName(const std::uint8_t* data, std::string& name, std::size_t& offset)
+{
+	std::size_t bytesCount = 0;
+	name.clear();
+	offset = 0;
+
+	if (*data & 0xC0)
+	{
+		offset = (*data) & 0x3F;
+		offset <<= 8;
+		offset += *(data + 1);
+		return 2;
+	}
+
+	std::size_t length = *data;
+	while (length != 0)
+	{
+		bytesCount += 1;
+		data += 1;
+
+		for (; length != 0; length--, data++, bytesCount++)
+		{
+			char x = *reinterpret_cast<const char*>(data);
+			name.push_back(x);			
+		}
+
+		if (*data & 0xC0)
+		{
+			offset = (*data) & 0x3F;
+			offset <<= 8;
+			offset += *(data + 1);
+			return bytesCount + 2;
+		}		
+
+		length = *data;
+		if (length != 0)
+		{
+			name.push_back('.');
+		}
+	}
+
+	return bytesCount + 1;
+}
 
 std::vector<std::uint8_t> DNSMessage::encodeDomainName(const std::string& name)
 {

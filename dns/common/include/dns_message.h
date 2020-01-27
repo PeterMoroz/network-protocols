@@ -25,6 +25,24 @@ class DNSMessage
 	// 	Response = true
 	// };
 
+public:
+	enum class QType : std::uint8_t
+	{
+		A     = 1,
+		NS    = 2,
+		CNAME = 5,
+		SOA   = 6,
+		MB    = 7,
+		WKS   = 11,
+		PTR   = 12,
+		HINFO = 13,
+		MINFO = 14,
+		MX    = 15,
+		TXT   = 16,
+		AXFR  = 252,
+		ANY   = 255
+	};	
+
 
 protected:
 	DNSMessage() = default;
@@ -69,12 +87,14 @@ protected:
 	void setFlagQR(bool on);
 	void setFieldOpcode(std::uint8_t opcode);
 	void setFlagAA(bool on);
-	void getFlagTC(bool on);
-	void getFlagRD(bool on);
-	void getFlagRA(bool on);
+	void setFlagTC(bool on);
+	void setFlagRD(bool on);
+	void setFlagRA(bool on);
 	void setFieldRcode(std::uint8_t rcode);
 
 protected:
+	// static std::size_t decodeDomainName(const std::uint8_t* data, std::string& name);
+	static std::size_t decodeDomainName(const std::uint8_t* data, std::string& name, std::size_t& offset);
 	static std::vector<std::uint8_t> encodeDomainName(const std::string& name);
 
 private:

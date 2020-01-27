@@ -23,11 +23,25 @@ std::size_t DNSQuery::decode(const std::vector<std::uint8_t>& buffer)
 
 std::vector<std::uint8_t> DNSQuery::encode() const
 {
-	// TO DO: need to be implemented for DNS client
 	std::vector<std::uint8_t> result(DNSMessage::encode());
 	std::vector<std::uint8_t> name(encodeDomainName(_name));
 
+	result.reserve(result.size() + name.size() + 2 * sizeof(std::uint16_t));
+
+	std::uint16_t type = htons(_type);
+	std::uint16_t cls = htons(_cls);
+	result.insert(result.end(), name.cbegin(), name.cend());
+	const std::uint8_t* src = reinterpret_cast<std::uint8_t*>(&type);
+	result.insert(result.end(), src, src + sizeof(std::uint16_t));
+	src = reinterpret_cast<std::uint8_t*>(&cls);
+	result.insert(result.end(), src, src + sizeof(std::uint16_t));
+
 	return result;
+}
+
+void DNSQuery::setUseRecursion(bool useRecursion)
+{
+	DNSMessage::setFlagRD(useRecursion);
 }
 
 void DNSQuery::dump(std::ostream& os) const
@@ -40,7 +54,6 @@ void DNSQuery::dump(std::ostream& os) const
 
 std::size_t DNSQuery::decodeName(const std::uint8_t* data, std::size_t size)
 {
-
 	std::size_t bytesCount = 0;
 	_name.clear();
 
