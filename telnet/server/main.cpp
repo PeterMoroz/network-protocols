@@ -19,7 +19,7 @@ void clientConnected(TelnetSession* session)
 void lineComplete(TelnetSession* session, const std::string& line)
 {
 	std::cout << "Complete line received: " << line << std::endl;
-	session->sendLine("Got " + line);
+	// session->sendLine("Got " + line);
 }
 
 int main(int argc, char* argv[])
