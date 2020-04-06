@@ -1,11 +1,12 @@
 #pragma once
 
 #include "smtp_session.h"
-#include "sessions_manager.h"
 
 #include <cstdint>
 
+#include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <asio.hpp>
 
@@ -26,7 +27,10 @@ public:
 private:
 	void acceptConnection();
 
+	void closeSession(std::uint32_t id);
+
 	void waitSignal();
+
 
 private:
 	asio::io_context _ioContext;
@@ -34,5 +38,7 @@ private:
 	asio::ip::tcp::acceptor _acceptor;
 
 	std::uint32_t _nextSessionId = 0;
-	SessionsManager<SMTPSession> _sessionsManager;
+	std::unordered_map<std::uint32_t, std::unique_ptr<SMTPSession>> _sessions;
+
+	friend void SMTPSession::close();
 };

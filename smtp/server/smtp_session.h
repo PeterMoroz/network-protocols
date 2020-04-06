@@ -1,7 +1,5 @@
 #pragma once
 
-#include "sessions_manager.h"
-
 #include <cstdint>
 #include <array>
 #include <fstream>
@@ -12,6 +10,7 @@
 
 using asio::ip::tcp;
 
+class SMTPServer;
 
 class SMTPSession final
 {
@@ -34,14 +33,15 @@ class SMTPSession final
 
 
 public:
-	SMTPSession(std::uint32_t id, SessionsManager<SMTPSession>* manager, tcp::socket&& socket);
+	SMTPSession(std::uint32_t id, SMTPServer* server, tcp::socket&& socket);
 	~SMTPSession();
 
+	std::uint32_t getId() const { return _id; }	
+
 	void start();
-	std::uint32_t getId() const { return _id; }
+	void close();
 
 private:
-	void close();
 	void receive();	
 	void sendResponse(std::uint16_t responseCode);
 
@@ -68,7 +68,7 @@ private:
 
 private:
 	std::uint32_t _id{0};
-	SessionsManager<SMTPSession>* _manager;
+	SMTPServer* _server = NULL;
 	tcp::socket _socket;
 	const std::string _domainName{"smtp.localhost.localdomain"};
 	const std::string _serverName{"My SMTP server"};

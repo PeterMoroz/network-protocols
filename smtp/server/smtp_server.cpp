@@ -53,6 +53,8 @@ void SMTPServer::stop()
 		LOG_ERROR() << " - Error " << ec.message() << '(' << ec.value() << ')' << std::endl;
 	}
 
+	// TO DO: close all sessions
+
 	try
 	{
 		_ioContext.stop();
@@ -60,7 +62,7 @@ void SMTPServer::stop()
 	catch (const std::exception& ex)
 	{
 		LOG_ERROR() << " - Exception " << ex.what() << std::endl;
-	}
+	}	
 
 	std::cout << " stop() - done\n";
 }
@@ -73,14 +75,11 @@ void SMTPServer::acceptConnection()
 			{
 				tcp::endpoint ep = socket.remote_endpoint();
 
-				LOG_INFO() << " - Accepted connection from " 
-					<< ep.address() << ':' << ep.port() << std::endl;
+				LOG_INFO() << " - Accepted connection from " << ep.address() << ':' << ep.port() << std::endl;
 				std::uint32_t sessionId = _nextSessionId + 1;
-				std::unique_ptr<SMTPSession> session = std::make_unique<SMTPSession>(sessionId, &_sessionsManager, std::move(socket));
-				_sessionsManager.startSession(std::move(session));
-				_nextSessionId = sessionId;
-				// _sessions[_sessionId] = std::move(std::make_unique<SMTPSession>(_sessionId, this, std::move(socket)));
-				// _sessions[_sessionId]->start();
+				_sessions[sessionId] = std::move(std::make_unique<SMTPSession>(sessionId, this, std::move(socket)));
+				_sessions[sessionId]->start();
+				_nextSessionId = sessionId;				
 			}
 			else
 			{
@@ -89,6 +88,11 @@ void SMTPServer::acceptConnection()
 
 			acceptConnection();
 		});
+}
+
+void SMTPServer::closeSession(std::uint32_t id)
+{
+	// async remove session from container
 }
 
 void SMTPServer::waitSignal()

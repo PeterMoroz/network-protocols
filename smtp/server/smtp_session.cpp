@@ -1,19 +1,21 @@
 #include "smtp_session.h"
+#include "smtp_server.h"
 #include "log.h"
 
 #include <cassert>
+
 #include <exception>
 #include <iomanip>
 #include <string>
 #include <sstream>
 
 
-SMTPSession::SMTPSession(std::uint32_t id, SessionsManager<SMTPSession>* manager, tcp::socket&& socket)
+SMTPSession::SMTPSession(std::uint32_t id, SMTPServer* server, tcp::socket&& socket)
 	: _id(id)
-	, _manager(manager)
+	, _server(server)
 	, _socket(std::move(socket))
 {
-	assert(manager != NULL);
+	assert(_server != NULL);
 }
 
 SMTPSession::~SMTPSession()
@@ -44,7 +46,7 @@ void SMTPSession::close()
 		LOG_ERROR() << " - Error " << ec.message() << '(' << ec.value() << ')' << std::endl;
 	}
 
-	_manager->closeSession(getId());
+	_server->closeSession(getId());
 }
 
 void SMTPSession::receive()
